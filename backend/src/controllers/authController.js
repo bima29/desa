@@ -4,43 +4,45 @@ import { Admin } from '../models/Admin.js';
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    // Find admin by email
+
+    // Cek apakah admin ada berdasarkan email
     const admin = await Admin.findByEmail(email);
     if (!admin) {
       return res.status(401).json({
         success: false,
+        data: null,
         message: 'Email atau password salah'
       });
     }
-    
-    // Verify password
+
+    // Verifikasi password
     const isValidPassword = await Admin.verifyPassword(password, admin.password);
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
+        data: null,
         message: 'Email atau password salah'
       });
     }
-    
-    // Update last login
+
+    // Update last login (pastikan method tersedia di model)
     await Admin.updateLastLogin(admin.id);
-    
-    // Generate JWT token
+
+    // Buat token JWT
     const token = jwt.sign(
-      { 
-        id: admin.id, 
+      {
+        id: admin.id,
         email: admin.email,
-        nama: admin.nama 
+        nama: admin.nama
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
     );
-    
-    // Remove password from response
+
+    // Hapus password dari objek admin
     const { password: _, ...adminData } = admin;
-    
-    res.json({
+
+    return res.status(200).json({
       success: true,
       data: {
         admin: adminData,
@@ -50,9 +52,10 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.error('Error during login:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan sistem'
+      data: null,
+      message: 'Terjadi kesalahan sistem saat login'
     });
   }
 };
@@ -60,28 +63,30 @@ export const login = async (req, res) => {
 export const register = async (req, res) => {
   try {
     const { nama, email, password } = req.body;
-    
-    // Check if admin already exists
+
+    // Cek apakah email sudah dipakai
     const existingAdmin = await Admin.findByEmail(email);
     if (existingAdmin) {
       return res.status(400).json({
         success: false,
+        data: null,
         message: 'Email sudah terdaftar'
       });
     }
-    
-    // Create new admin
+
+    // Buat admin baru
     const adminId = await Admin.create({ nama, email, password });
-    
-    res.status(201).json({
+
+    return res.status(201).json({
       success: true,
       data: { id: adminId },
       message: 'Admin berhasil dibuat'
     });
   } catch (error) {
     console.error('Error creating admin:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
+      data: null,
       message: 'Gagal membuat admin'
     });
   }
@@ -90,34 +95,40 @@ export const register = async (req, res) => {
 export const verifyToken = async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    
+
     if (!token) {
       return res.status(401).json({
         success: false,
+        data: null,
         message: 'Token tidak ditemukan'
       });
     }
-    
+
+    // Decode token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Ambil admin dari database
     const admin = await Admin.findByEmail(decoded.email);
-    
     if (!admin) {
       return res.status(401).json({
         success: false,
+        data: null,
         message: 'Token tidak valid'
       });
     }
-    
+
     const { password: _, ...adminData } = admin;
-    
-    res.json({
+
+    return res.status(200).json({
       success: true,
-      data: adminData
+      data: adminData,
+      message: 'Token valid'
     });
   } catch (error) {
     console.error('Error verifying token:', error);
-    res.status(401).json({
+    return res.status(401).json({
       success: false,
+      data: null,
       message: 'Token tidak valid'
     });
   }

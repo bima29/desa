@@ -1,98 +1,95 @@
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs';
+// src/config/database.js
+import mysql from 'mysql2/promise';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Database file path
-const dbPath = join(__dirname, '../../data/database.sqlite');
-
-// Ensure data directory exists
-const dataDir = dirname(dbPath);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+// Konfigurasi koneksi ke MySQL
+const dbConfig = {
+  host: 'localhost',
+  user: 'root',
+  password: '', 
+  database: 'desa', 
+};
 
 let db = null;
 
-// Initialize SQLite database
+// Inisialisasi koneksi database
 export const initializeDatabase = async () => {
   try {
-    db = new Database(dbPath);
-    
-    // Enable foreign keys
-    db.pragma('foreign_keys = ON');
-    
-    // Create tables
-    createTables();
-    
-    // Insert default data if tables are empty
-    insertDefaultData();
-    
-    console.log('✅ SQLite database initialized successfully');
+    db = await mysql.createConnection(dbConfig);
+    console.log('✅ MySQL database connected');
+
+    await createTables();
+    await insertDefaultData();
+
     return true;
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
+    console.error('❌ Failed to initialize MySQL connection:', error);
     throw error;
   }
 };
 
-// Create database tables
-const createTables = () => {
-  // Desa Settings table
-  db.exec(`
+// Membuat tabel jika belum ada
+const createTables = async () => {
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS desa_settings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nama_desa TEXT NOT NULL DEFAULT 'Desa Digital',
-      alamat TEXT DEFAULT '',
-      telepon TEXT DEFAULT '',
-      email TEXT DEFAULT '',
-      website TEXT DEFAULT '',
-      logo_url TEXT DEFAULT '',
-      hero_image_url TEXT DEFAULT '',
-      visi TEXT DEFAULT '',
-      misi TEXT DEFAULT '',
-      sejarah TEXT DEFAULT '',
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      nama_desa VARCHAR(255) NOT NULL DEFAULT 'Desa Digital',
+      alamat TEXT,
+      telepon VARCHAR(50),
+      email VARCHAR(100),
+      website VARCHAR(255),
+      logo_url VARCHAR(255),
+      hero_image_url VARCHAR(255),
+      visi TEXT,
+      misi TEXT,
+      sejarah TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
-  // News table
-  db.exec(`
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS admins (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(50) UNIQUE NOT NULL,
+      email VARCHAR(100) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      nama VARCHAR(100) NOT NULL,
+      role ENUM('admin','super_admin') DEFAULT 'admin',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS news (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INT AUTO_INCREMENT PRIMARY KEY,
       judul TEXT NOT NULL,
       slug TEXT UNIQUE NOT NULL,
       konten TEXT NOT NULL,
       excerpt TEXT,
       gambar_url TEXT,
-      status TEXT DEFAULT 'published' CHECK(status IN ('draft', 'published')),
+      status ENUM('draft', 'published') DEFAULT 'published',
       tanggal_publikasi DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
-  // Gallery table
-  db.exec(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS galleries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INT AUTO_INCREMENT PRIMARY KEY,
       judul TEXT NOT NULL,
       deskripsi TEXT,
       gambar_url TEXT NOT NULL,
       kategori TEXT DEFAULT 'umum',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
-  // Events table
-  db.exec(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INT AUTO_INCREMENT PRIMARY KEY,
       judul TEXT NOT NULL,
       deskripsi TEXT,
       tanggal_mulai DATETIME NOT NULL,
@@ -100,42 +97,39 @@ const createTables = () => {
       lokasi TEXT,
       gambar_url TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
-  // Organization table
-  db.exec(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS organization (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INT AUTO_INCREMENT PRIMARY KEY,
       nama TEXT NOT NULL,
       jabatan TEXT NOT NULL,
       foto_url TEXT,
-      urutan INTEGER DEFAULT 0,
+      urutan INT DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
-  // Services table
-  db.exec(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS services (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INT AUTO_INCREMENT PRIMARY KEY,
       nama TEXT NOT NULL,
       deskripsi TEXT,
       persyaratan TEXT,
       biaya TEXT DEFAULT 'Gratis',
       waktu_proses TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
   `);
 
-  // Service Submissions table
-  db.exec(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS service_submissions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      service_id INTEGER NOT NULL,
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      service_id INT NOT NULL,
       nama_pemohon TEXT NOT NULL,
       nik TEXT NOT NULL,
       alamat TEXT NOT NULL,
@@ -143,40 +137,25 @@ const createTables = () => {
       email TEXT,
       keperluan TEXT NOT NULL,
       berkas_pendukung TEXT,
-      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'diproses', 'selesai', 'ditolak')),
+      status ENUM('pending', 'diproses', 'selesai', 'ditolak') DEFAULT 'pending',
       catatan TEXT,
       tanggal_pengajuan DATETIME DEFAULT CURRENT_TIMESTAMP,
       tanggal_selesai DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (service_id) REFERENCES services (id)
-    )
-  `);
-
-  // Admin table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS admins (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      nama TEXT NOT NULL,
-      role TEXT DEFAULT 'admin' CHECK(role IN ('admin', 'super_admin')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
     )
   `);
 };
 
-// Insert default data
-const insertDefaultData = () => {
-  // Check if desa_settings exists
-  const desaSettings = db.prepare('SELECT COUNT(*) as count FROM desa_settings').get();
-  if (desaSettings.count === 0) {
-    db.prepare(`
+// Data awal jika kosong
+const insertDefaultData = async () => {
+  const [desaRows] = await db.execute('SELECT COUNT(*) AS count FROM desa_settings');
+  if (desaRows[0].count === 0) {
+    await db.execute(`
       INSERT INTO desa_settings (nama_desa, alamat, telepon, email, visi, misi, sejarah)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       'Desa Maju Bersama',
       'Jl. Raya Desa No. 123, Kecamatan Contoh, Kabupaten Contoh',
       '(021) 1234-5678',
@@ -184,25 +163,21 @@ const insertDefaultData = () => {
       'Menjadi desa yang maju, mandiri, dan sejahtera berbasis teknologi digital',
       'Meningkatkan pelayanan publik melalui digitalisasi, Memberdayakan masyarakat dalam bidang ekonomi dan sosial, Melestarikan budaya dan lingkungan hidup',
       'Desa Maju Bersama didirikan pada tahun 1945 dan telah berkembang menjadi desa yang modern dengan tetap mempertahankan nilai-nilai tradisional.'
-    );
+    ]);
   }
 
-  // Check if admin exists
-  const adminCount = db.prepare('SELECT COUNT(*) as count FROM admins').get();
-  if (adminCount.count === 0) {
-    // Default admin: username=admin, password=admin123
-    const bcrypt = require('bcryptjs');
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-    
-    db.prepare(`
+  const [adminRows] = await db.execute('SELECT COUNT(*) AS count FROM admins');
+  if (adminRows[0].count === 0) {
+    const bcrypt = await import('bcryptjs');
+    const hashedPassword = bcrypt.default.hashSync('admin123', 10);
+    await db.execute(`
       INSERT INTO admins (username, email, password, nama, role)
       VALUES (?, ?, ?, ?, ?)
-    `).run('admin', 'admin@desa.id', hashedPassword, 'Administrator', 'super_admin');
+    `, ['admin', 'admin@desa.id', hashedPassword, 'Administrator', 'super_admin']);
   }
 
-  // Insert sample news if empty
-  const newsCount = db.prepare('SELECT COUNT(*) as count FROM news').get();
-  if (newsCount.count === 0) {
+  const [newsRows] = await db.execute('SELECT COUNT(*) AS count FROM news');
+  if (newsRows[0].count === 0) {
     const sampleNews = [
       {
         judul: 'Pembangunan Jalan Desa Tahap II Dimulai',
@@ -220,65 +195,52 @@ const insertDefaultData = () => {
       }
     ];
 
-    const insertNews = db.prepare(`
-      INSERT INTO news (judul, slug, konten, excerpt, gambar_url)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    sampleNews.forEach(news => {
-      insertNews.run(news.judul, news.slug, news.konten, news.excerpt, news.gambar_url);
-    });
-  }
-};
-
-// Execute query
-export const executeQuery = (query, params = []) => {
-  try {
-    if (query.trim().toUpperCase().startsWith('SELECT')) {
-      const stmt = db.prepare(query);
-      return stmt.all(params);
-    } else {
-      const stmt = db.prepare(query);
-      return stmt.run(params);
+    for (const news of sampleNews) {
+      await db.execute(`
+        INSERT INTO news (judul, slug, konten, excerpt, gambar_url)
+        VALUES (?, ?, ?, ?, ?)
+      `, [news.judul, news.slug, news.konten, news.excerpt, news.gambar_url]);
     }
-  } catch (error) {
-    console.error('❌ Database query error:', error);
-    throw error;
   }
 };
 
-// Execute single query
-export const executeQuerySingle = (query, params = []) => {
+// Jalankan query biasa (SELECT/INSERT/UPDATE)
+export const executeQuery = async (query, params = []) => {
   try {
-    const stmt = db.prepare(query);
-    return stmt.get(params);
+    const [rows] = await db.execute(query, params);
+    return rows;
   } catch (error) {
     console.error('❌ Database query error:', error);
     throw error;
   }
 };
 
-// Get database instance
-export const getDatabase = () => {
-  if (!db) {
-    throw new Error('Database not initialized');
+// Jalankan query tunggal (SELECT 1 data saja)
+export const executeQuerySingle = async (query, params = []) => {
+  try {
+    const [rows] = await db.execute(query, params);
+    return rows[0] || null;
+  } catch (error) {
+    console.error('❌ Single query error:', error);
+    throw error;
   }
+};
+
+// Ambil koneksi database
+export const getDatabase = () => {
+  if (!db) throw new Error('Database not initialized');
   return db;
 };
 
-// Test connection
+// Test koneksi database
 export const testConnection = async () => {
   try {
-    if (!db) {
-      throw new Error('Database not initialized');
-    }
-    
-    // Test with a simple query
-    db.prepare('SELECT 1').get();
-    console.log('✅ Database connection test successful');
+    if (!db) throw new Error('Database not initialized');
+    await db.query('SELECT 1');
+    console.log('✅ MySQL connection test successful');
     return true;
   } catch (error) {
-    console.error('❌ Database connection test failed:', error);
+    console.error('❌ MySQL test connection failed:', error);
     return false;
   }
 };
@@ -288,5 +250,5 @@ export default {
   executeQuery,
   executeQuerySingle,
   getDatabase,
-  testConnection
+  testConnection,
 };

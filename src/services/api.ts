@@ -66,7 +66,18 @@ const getDefaultSettings = (): DesaSettings => ({
   secondary_color: '#10B981',
   deskripsi: 'Deskripsi desa',
   created_at: new Date(),
-  updated_at: new Date()
+  updated_at: new Date(),
+  visi: '',
+  misi: '',
+  sejarah: '',
+  telepon: '',
+  email: '',
+  website: '',
+  facebook: '',
+  twitter: '',
+  instagram: '',
+  youtube: '',
+  jam_operasional: ''
 });
 
 export const updateDesaSettings = async (settings: Partial<DesaSettings>): Promise<ApiResponse<DesaSettings>> => {
@@ -82,14 +93,27 @@ export const updateDesaSettings = async (settings: Partial<DesaSettings>): Promi
 };
 
 // News Service
-export const getNews = async (page: number = 1, limit: number = 10, status: string = 'published'): Promise<PaginatedResponse<News>> => {
+export const getNews = async (
+  page: number = 1, 
+  limit: number = 10
+): Promise<PaginatedResponse<News>> => {
   try {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
-      status
+      status: 'published'
     });
-    return await apiRequest<PaginatedResponse<News>>(`/news?${params}`);
+    
+    const response = await apiRequest<PaginatedResponse<News>>(`/news?${params}`);
+    
+    // Pastikan struktur response benar
+    return {
+      data: response.data || [],
+      total: response.total || 0,
+      page: response.page || page,
+      limit: response.limit || limit,
+      totalPages: response.totalPages || 1
+    };
   } catch (error) {
     console.error('Error fetching news:', error);
     return {
@@ -97,16 +121,18 @@ export const getNews = async (page: number = 1, limit: number = 10, status: stri
       total: 0,
       page,
       limit,
-      totalPages: 0
+      totalPages: 1
     };
   }
 };
 
+
 export const getNewsBySlug = async (slug: string): Promise<News | null> => {
   try {
-    return await apiRequest<News>(`/news/${slug}`);
-  } catch (error) {
-    console.error('Error fetching news by slug:', error);
+    const resp = await apiRequest<ApiResponse<News>>(`/news/${slug}`);
+    return resp.data ?? null;    
+  } catch (e) {
+    console.error('Error fetching by slug:', e);
     return null;
   }
 };

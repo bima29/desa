@@ -154,9 +154,9 @@ const Home: React.FC = () => {
                       {article.judul}
                     </Link>
                   </h3>
-                  <p className="text-gray-600 mb-4 line-clamp-3">
-                    {article.konten.substring(0, 150)}...
-                  </p>
+                 <p className="text-gray-600 mb-4 line-clamp-3 leading-relaxed">
+                        {article.konten.replace(/<[^>]*>/g, '').slice(0, 150)}...
+                      </p>
                   <Link 
                     to={`/berita/${article.slug}`}
                     className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium"

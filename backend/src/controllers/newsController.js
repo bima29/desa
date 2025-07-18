@@ -5,9 +5,14 @@ export const getAllNews = async (req, res) => {
     const { page = 1, limit = 10, status = 'published' } = req.query;
     const result = await News.getAll(parseInt(page), parseInt(limit), status);
     
+    // Struktur response: sukses + pagination
     res.json({
       success: true,
-      ...result
+      data: result.data,          // array berita
+      total: result.total,        // total item keseluruhan
+      page: parseInt(page),       // halaman saat ini
+      limit: parseInt(limit),     // limit per halaman
+      totalPages: result.totalPages
     });
   } catch (error) {
     console.error('Error fetching news:', error);
@@ -48,14 +53,19 @@ export const createNews = async (req, res) => {
     const newsData = {
       ...req.body,
       tanggal: new Date(),
-      slug: req.body.judul.toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-')
+      slug: req.body.judul
+        .toLowerCase()
+        .replace(/[^a-z0-9 -]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
     };
     
     const id = await News.create(newsData);
+    const created = await News.getById(id);  // ambil kembali data yang baru dibuat
     
     res.status(201).json({
       success: true,
-      data: { id },
+      data: created,
       message: 'News created successfully'
     });
   } catch (error) {
@@ -71,9 +81,11 @@ export const updateNews = async (req, res) => {
   try {
     const { id } = req.params;
     await News.update(parseInt(id), req.body);
+    const updated = await News.getById(parseInt(id)); // ambil kembali data terbaru
     
     res.json({
       success: true,
+      data: updated,
       message: 'News updated successfully'
     });
   } catch (error) {
@@ -92,6 +104,7 @@ export const deleteNews = async (req, res) => {
     
     res.json({
       success: true,
+      data: null,
       message: 'News deleted successfully'
     });
   } catch (error) {
@@ -102,3 +115,4 @@ export const deleteNews = async (req, res) => {
     });
   }
 };
+
