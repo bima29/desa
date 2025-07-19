@@ -29,7 +29,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // === SECURITY HEADERS (helmet) ===
-app.use(helmet());
+app.use(
+  helmet({
+    // override default yang 'same-origin'
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
 
 // === RATE LIMITER ===
 const limiter = rateLimit({
