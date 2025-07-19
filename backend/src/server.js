@@ -1,12 +1,18 @@
 // === LOAD ENV FIRST ===
-import './config/env.js'; 
+import './config/env.js';
 
 // === IMPORT MODULES ===
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { initializeDatabase } from './config/database.js';
+
+// === DIRNAME CONFIGURATION (ES Modules fix) ===
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // === IMPORT ROUTES ===
 import desaRoutes from './routes/desa.js';
@@ -26,27 +32,58 @@ const PORT = process.env.PORT || 5000;
 app.use(helmet());
 
 // === RATE LIMITER ===
-app.use(
-  '/api/',
-  rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 menit
-    max: 100,
-    message: {
-      success: false,
-      message: 'Too many requests from this IP, please try again later.',
-    },
-  })
-);
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.',
+  },
+});
+
+// Apply rate limiting to API routes
+app.use('/api/', limiter);
 
 // === CORS CONFIGURATION ===
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // For legacy browser support
+};
+
+app.use(cors(corsOptions));
+
 app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
+  '/backend-assets',
+  express.static(
+    path.join(__dirname, '..', 'public', 'assets'),  // jadi langsung ke folder assets
+    {
+      dotfiles: 'ignore',
+      etag: true,
+      maxAge: '7d',
+      setHeaders: (res, filePath) => {
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.set('X-Frame-Options', 'DENY');
+
+        if (filePath.endsWith('.html')) {
+          res.set('Cache-Control', 'no-store');
+        } else if (/\.(jpg|jpeg|png|gif|webp|svg|mp4|mov|avi)$/i.test(filePath)) {
+          res.set('Cache-Control', 'public, max-age=2592000, immutable');
+        } else if (/\.(js|css)$/i.test(filePath)) {
+          res.set('Cache-Control', 'public, max-age=86400');
+        } else if (filePath.includes('gallery')) {
+          res.set('Cache-Control', 'public, max-age=2592000');
+        }
+      }
+    }
+  )
 );
+
+
 
 // === BODY PARSER (JSON & FORM) ===
 app.use(express.json({ limit: '10mb' }));
@@ -58,11 +95,14 @@ app.get('/health', (req, res) => {
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: process.env.npm_package_version || '1.0.0',
+    uptime: process.uptime()
   });
 });
 
 // === API ROUTES ===
-// Rute publik diurutkan terlebih dahulu
+// Public routes
 app.use('/api/desa', desaRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/galleries', galleryRoutes);
@@ -70,28 +110,46 @@ app.use('/api/events', eventsRoutes);
 app.use('/api/organization', organizationRoutes);
 app.use('/api/services', servicesRoutes);
 
-// Rute statistik ditempatkan sebelum autentikasi
-app.use('/api/statistics', statisticsRoutes);  // Diakses publik tanpa autentikasi
+// Statistics route (public)
+app.use('/api/statistics', statisticsRoutes);
 
-// Rute autentikasi ditempatkan terakhir
-app.use('/api/auth', authRoutes);  // Memerlukan autentikasi
+// Authentication routes
+app.use('/api/auth', authRoutes);
 
 // === 404 ROUTE HANDLER ===
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'API endpoint not found',
+    requestedUrl: req.originalUrl,
+    availableEndpoints: [
+      '/api/desa',
+      '/api/news',
+      '/api/galleries',
+      '/api/events',
+      '/api/organization',
+      '/api/services',
+      '/api/statistics',
+      '/api/auth'
+    ]
   });
 });
 
 // === GLOBAL ERROR HANDLER ===
 app.use((error, req, res, next) => {
   console.error('Global error handler:', error);
-  res.status(error.status || 500).json({
+  
+  const response = {
     success: false,
     message: error.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
-  });
+  };
+
+  if (process.env.NODE_ENV === 'development') {
+    response.stack = error.stack;
+    response.fullError = error;
+  }
+
+  res.status(error.status || 500).json(response);
 });
 
 // === START SERVER & CONNECT DB ===
@@ -99,10 +157,13 @@ const startServer = async () => {
   try {
     await initializeDatabase();
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log(`🔗 API base URL: http://localhost:${PORT}/api`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`
+      🚀 Server running on port ${PORT}
+      📊 Health check: http://localhost:${PORT}/health
+      🔗 API base URL: http://localhost:${PORT}/api
+      🌍 Environment: ${process.env.NODE_ENV || 'development'}
+      📁 Static files: http://localhost:${PORT}/backend-assets
+      `);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
