@@ -3,12 +3,15 @@ import { Gallery } from '../models/Gallery.js';
 export const getAllGalleries = async (req, res) => {
   try {
     const { kategori } = req.query;
-    const galleries = await Gallery.getAll(kategori);
+    let galleries = await Gallery.getAll(kategori);
     
-    res.json({
-      success: true,
-      data: galleries
-    });
+    // Tambahkan base path ke gambar
+    galleries = galleries.map(gallery => ({
+      ...gallery,
+      gambar: `/assets/gallery/${gallery.gambar}`
+    }));
+    
+    res.json({ success: true, data: galleries });
   } catch (error) {
     console.error('Error fetching galleries:', error);
     res.status(500).json({
