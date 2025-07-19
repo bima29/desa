@@ -9,11 +9,18 @@ export const getStatistics = async (req, res) => {
       executeQuerySingle('SELECT COUNT(*) as count FROM pengajuan_layanan')
     ]);
 
+    console.log('Debug counts:', {
+      newsCount,
+      galleryCount,
+      eventsCount,
+      submissionsCount
+    });
+
     const statistics = {
-      news: newsCount?.count || 0,
-      gallery: galleryCount?.count || 0,
-      events: eventsCount?.count || 0,
-      submissions: submissionsCount?.count || 0,
+      news: newsCount?.count ?? 0,
+      gallery: galleryCount?.count ?? 0,
+      events: eventsCount?.count ?? 0,
+      submissions: submissionsCount?.count ?? 0,
       documents: 0
     };
 

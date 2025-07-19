@@ -219,12 +219,15 @@ export const executeQuery = async (query, params = []) => {
 export const executeQuerySingle = async (query, params = []) => {
   try {
     const [rows] = await db.execute(query, params);
+    console.log('✅ Query:', query);           // <--- Tambahkan ini
+    console.log('✅ Result:', rows);           // <--- Tambahkan ini
     return rows[0] || null;
   } catch (error) {
     console.error('❌ Single query error:', error);
     throw error;
   }
 };
+
 
 // Ambil koneksi database
 export const getDatabase = () => {
