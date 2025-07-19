@@ -255,3 +255,5 @@ export default {
   getDatabase,
   testConnection,
 };
+// Tambahkan ekspor db di akhir file
+export { db };

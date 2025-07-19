@@ -62,14 +62,19 @@ app.get('/health', (req, res) => {
 });
 
 // === API ROUTES ===
+// Rute publik diurutkan terlebih dahulu
 app.use('/api/desa', desaRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/galleries', galleryRoutes);
 app.use('/api/events', eventsRoutes);
 app.use('/api/organization', organizationRoutes);
 app.use('/api/services', servicesRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/statistics', statisticsRoutes);
+
+// Rute statistik ditempatkan sebelum autentikasi
+app.use('/api/statistics', statisticsRoutes);  // Diakses publik tanpa autentikasi
+
+// Rute autentikasi ditempatkan terakhir
+app.use('/api/auth', authRoutes);  // Memerlukan autentikasi
 
 // === 404 ROUTE HANDLER ===
 app.use('*', (req, res) => {

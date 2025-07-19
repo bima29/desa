@@ -1,7 +1,7 @@
 // utils/auth.ts
 
-const AUTH_TOKEN_KEY = 'desa_auth_token';
-const ADMIN_KEY = 'desa_admin_data';
+const AUTH_TOKEN_KEY = "desa_auth_token";
+const ADMIN_KEY = "desa_admin_data";
 
 /**
  * Simpan token autentikasi ke localStorage.
@@ -37,13 +37,13 @@ export const isAuthenticated = (): boolean => {
   if (!token) return false;
 
   try {
-    const payloadBase64 = token.split('.')[1];
+    const payloadBase64 = token.split(".")[1];
     const payload = JSON.parse(atob(payloadBase64));
     const now = Math.floor(Date.now() / 1000);
 
     return payload.exp && payload.exp > now;
   } catch (error) {
-    console.error('Token parsing error:', error);
+    console.error("Token parsing error:", error);
     return false;
   }
 };
@@ -65,7 +65,7 @@ export const getAdminData = (): any | null => {
     const adminData = localStorage.getItem(ADMIN_KEY);
     return adminData ? JSON.parse(adminData) : null;
   } catch (error) {
-    console.error('Failed to parse admin data:', error);
+    console.error("Failed to parse admin data:", error);
     return null;
   }
 };

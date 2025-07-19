@@ -176,6 +176,15 @@ export interface StatistikDesa {
   updated_at: Date;
 }
 
+export interface Statistics {
+  news: number;
+  gallery: number;
+  events: number;
+  submissions: number;
+  documents: number;
+}
+
+
 export interface FasilitasDesa {
   id: number;
   nama: string;

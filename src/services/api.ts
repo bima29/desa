@@ -1,7 +1,8 @@
 import { 
   DesaSettings, News, Gallery, Event, Organization, Service, 
-  ServiceSubmission, Admin, ApiResponse, PaginatedResponse 
+  ServiceSubmission, Admin, ApiResponse, PaginatedResponse, Statistics
 } from '../types';
+import { getAuthToken } from '../utils/auth';
 
 // API Base URL - points to backend server
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -12,7 +13,7 @@ const apiRequest = async <T>(
   options: RequestInit = {}
 ): Promise<T> => {
   const url = `${API_BASE_URL}${endpoint}`;
-  const token = localStorage.getItem('auth_token');
+  const token = getAuthToken();
   
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
@@ -265,6 +266,33 @@ export const createService = async (serviceData: Partial<Service>): Promise<ApiR
   }
 };
 
+// Statistics Service
+export const getStatistics = async (): Promise<Statistics> => {
+  try {
+    const response = await apiRequest<ApiResponse<Statistics>>('/statistics');
+
+    // Pastikan response success dan data valid
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    // Jika struktur tidak sesuai, lempar error
+    throw new Error('Invalid statistics response');
+  } catch (error) {
+    console.error('Error fetching statistics:', error);
+
+    // Default fallback jika terjadi error
+    return {
+      news: 0,
+      gallery: 0,
+      events: 0,
+      submissions: 0,
+      documents: 0,
+    };
+  }
+};
+
+
 // Service Submissions
 export const createServiceSubmission = async (submissionData: Partial<ServiceSubmission>): Promise<ApiResponse<ServiceSubmission>> => {
   try {
@@ -325,25 +353,3 @@ export const createAdmin = async (adminData: Partial<Admin>): Promise<ApiRespons
   }
 };
 
-// Statistics Service
-export const getStatistics = async () => {
-  try {
-    const response = await apiRequest<ApiResponse<any>>('/statistics');
-    return response.data || {
-      news: 0,
-      gallery: 0,
-      events: 0,
-      submissions: 0,
-      documents: 0,
-    };
-  } catch (error) {
-    console.error('Error fetching statistics:', error);
-    return {
-      news: 0,
-      gallery: 0,
-      events: 0,
-      submissions: 0,
-      documents: 0,
-    };
-  }
-};
